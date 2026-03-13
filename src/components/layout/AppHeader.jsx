@@ -1,3 +1,4 @@
+import { useMemo } from 'react';
 import AppBar from '@mui/material/AppBar';
 import Toolbar from '@mui/material/Toolbar';
 import Box from '@mui/material/Box';
@@ -12,6 +13,7 @@ import MenuItem from '@mui/material/MenuItem';
 import Autocomplete from '@mui/material/Autocomplete';
 import TextField from '@mui/material/TextField';
 import Chip from '@mui/material/Chip';
+import Typography from '@mui/material/Typography';
 import { useTheme } from '@mui/material/styles';
 import AccountBalanceWalletIcon from '@mui/icons-material/AccountBalanceWallet';
 import FileUploadIcon from '@mui/icons-material/FileUpload';
@@ -32,11 +34,36 @@ export default function AppHeader({ onMenuClick }) {
     setAccountFilter,
     setExcludeCategories,
   } = useWallet();
-  const { availableYears, availableMonths, availableCategories, availableAccounts } =
+  const { availableYears, availableMonths, availableCategories, availableAccounts, categoryData } =
     useWalletAnalytics();
   const { mode, toggleMode } = useColorMode();
   const theme = useTheme();
   const dark = theme.palette.mode === 'dark';
+
+  const categoryPct = useMemo(() => {
+    const total = categoryData.reduce((s, c) => s + c.amount, 0);
+    const map = {};
+    for (const c of categoryData) {
+      map[c.category] = total > 0 ? ((c.amount / total) * 100).toFixed(1) : '0.0';
+    }
+    return map;
+  }, [categoryData]);
+
+  const sortedCategories = useMemo(() =>
+    [...availableCategories].sort((a, b) => (parseFloat(categoryPct[b] || 0)) - (parseFloat(categoryPct[a] || 0))),
+    [availableCategories, categoryPct]
+  );
+
+  const renderCategoryOption = (props, option) => (
+    <Box component="li" {...props} display="flex" justifyContent="space-between" key={option}>
+      <span>{option}</span>
+      {categoryPct[option] && (
+        <Typography variant="caption" color="text.secondary" sx={{ ml: 1, fontWeight: 600 }}>
+          {categoryPct[option]}%
+        </Typography>
+      )}
+    </Box>
+  );
 
   return (
     <AppBar
@@ -111,48 +138,50 @@ export default function AppHeader({ onMenuClick }) {
         <Autocomplete
           multiple
           size="small"
-          options={availableCategories}
+          options={sortedCategories}
           value={filters.categoryFilter}
           onChange={(_, newVal) => setCategoryFilter(newVal)}
           renderInput={(params) => (
             <TextField {...params} label="Categories" placeholder="Search..." />
           )}
+          renderOption={renderCategoryOption}
           renderTags={(value, getTagProps) =>
             value.map((option, index) => (
               <Chip
                 {...getTagProps({ index })}
                 key={option}
-                label={option}
+                label={`${option} ${categoryPct[option] ? categoryPct[option] + '%' : ''}`}
                 size="small"
               />
             ))
           }
-          sx={{ minWidth: 180, maxWidth: 320, flex: '0 1 auto' }}
+          sx={{ minWidth: 180, maxWidth: 360, flex: '0 1 auto' }}
           disableCloseOnSelect
         />
 
         <Autocomplete
           multiple
           size="small"
-          options={availableCategories}
+          options={sortedCategories}
           value={filters.excludeCategories}
           onChange={(_, newVal) => setExcludeCategories(newVal)}
           renderInput={(params) => (
             <TextField {...params} label="Exclude" placeholder="Search..." />
           )}
+          renderOption={renderCategoryOption}
           renderTags={(value, getTagProps) =>
             value.map((option, index) => (
               <Chip
                 {...getTagProps({ index })}
                 key={option}
-                label={option}
+                label={`${option} ${categoryPct[option] ? categoryPct[option] + '%' : ''}`}
                 size="small"
                 color="error"
                 variant="outlined"
               />
             ))
           }
-          sx={{ minWidth: 160, maxWidth: 280, flex: '0 1 auto' }}
+          sx={{ minWidth: 160, maxWidth: 320, flex: '0 1 auto' }}
           disableCloseOnSelect
         />
 
